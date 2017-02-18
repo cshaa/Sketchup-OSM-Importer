@@ -16,53 +16,56 @@ include REXML
 module M93A
   module OSM_Importer
 
-    def m93a_osm_import()
+    class << self
+      def m93a_osm_import
 
-      model = Sketchup.active_model
-      imported = model.entities.add_group
+        model = Sketchup.active_model
+        imported = model.entities.add_group
 
-      # Check for georeferencing
-      unless model.georeferenced?
-        UI.messagebox("The model needs to be georeferenced!")
-        return
-      end
+        # Check for georeferencing
+        unless model.georeferenced?
+          UI.messagebox("The model needs to be georeferenced!")
+          return
+        end
 
-      # Start the operation
-      model.start_operation("Import OSM File",true)
+        # Start the operation
+        model.start_operation("Import OSM File",true)
 
-      # Ask user for the OSM file
-      base = UI.openpanel("Select OSM File", "~", "OSM Files|*.osm;||")
-      path = File.dirname(base) + '/' + File.basename(base,".*") + '.osm'
+        # Ask user for the OSM file
+        base = UI.openpanel("Select OSM File", "~", "OSM Files|*.osm;||")
+        path = File.dirname(base) + '/' + File.basename(base,".*") + '.osm'
 
-      # Parse the file
-      doc = Document.new File.new path
-      nodes = Hash.new
+        # Parse the file
+        doc = Document.new File.new path
+        nodes = Hash.new
 
-      # Read positions of nodes
-      doc.elements.each("osm/node") { |n|
-        id = n.attributes["id"]
-        lat = n.attributes["lat"].to_f
-        lon = n.attributes["lon"].to_f
-        nodes[id] = model.latlong_to_point [lat,lon]
-      }
-
-      # Add ways to the model
-      doc.elements.each("osm/way") { |w|
-        points = []
-        group = imported.entities.add_group
-        w.elements.each("nd") { |n|
-          points.push nodes[n.attributes["ref"]]
+        # Read positions of nodes
+        doc.elements.each("osm/node") { |n|
+          id = n.attributes["id"]
+          lat = n.attributes["lat"].to_f
+          lon = n.attributes["lon"].to_f
+          # BEWARE! Longitude comes first!
+          nodes[id] = model.latlong_to_point [lon,lat]
         }
-        group.entities.add_edges points
-      }
 
-      # Commit the operation
-      model.commit_operation
-    end
+        # Add ways to the model
+        doc.elements.each("osm/way") { |w|
+          points = []
+          group = imported.entities.add_group
+          w.elements.each("nd") { |n|
+            points.push nodes[n.attributes["ref"]]
+          }
+          group.entities.add_edges points
+        }
+
+        # Commit the operation
+        model.commit_operation
+      end #m93a_osm_import
+    end #class
 
 
     unless file_loaded?("m93a_osm_importer.rb")
-      UI.menu("PlugIns").add_item("Import OSM File (new)") { m93a_osm_import() }
+      UI.menu("PlugIns").add_item("Import OSM File") { m93a_osm_import }
       file_loaded("m93a_osm_importer.rb")
     end
 
